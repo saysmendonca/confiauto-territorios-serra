@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#102841" />
+  <title>Confiauto | Territórios Serra</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Confiauto — início">
+        <span class="brand-mark"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3 27 8v7c0 7.2-4.7 12-11 14C9.7 27 5 22.2 5 15V8l11-5Z"/><path d="M10.5 16.3 14 20l7.5-8"/></svg></span>
+        <span class="brand-name">confiauto<span>proteção veicular</span></span>
+      </a>
+      <div class="topbar-divider"></div>
+      <div class="page-heading"><span class="eyebrow">OPERAÇÃO COMERCIAL</span><strong>Mapa de atuação</strong></div>
+      <div class="topbar-spacer"></div>
+      <div class="city-pill"><span class="live-dot"></span><span>Serra, ES</span><span class="chevron">⌄</span></div>
+      <button id="exportBtn" class="button button-primary export-top"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v3h16v-3"/></svg> Exportar divisão</button>
+    </header>
+
+    <main class="workspace">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-scroll">
+          <div class="side-title-row"><div><div class="section-kicker">PLANEJAMENTO</div><h1>Equipes de vendas</h1></div><button class="icon-button add-team" id="addTeamBtn" title="Adicionar equipe" aria-label="Adicionar equipe">+</button></div>
+          <p class="side-description">Organize os bairros e distribua a atuação de cada time.</p>
+
+          <div class="metric-row">
+            <div class="metric-card"><div class="metric-icon blue-icon"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5M5.5 9v11h13V9M9.5 20v-6h5v6"/></svg></div><div><strong id="assignedCount">—</strong><span>bairros atribuídos</span></div></div>
+            <div class="metric-card"><div class="metric-icon green-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.3"/><path d="M3 20v-1.5a6 6 0 0 1 12 0V20M16 5.5a3.2 3.2 0 0 1 0 6.2m2 2.1a5 5 0 0 1 3 4.6V20"/></svg></div><div><strong id="teamCount">0</strong><span>equipes ativas</span></div></div>
+          </div>
+
+          <div class="team-section-head"><span class="section-kicker">TIMES</span><span id="coverageLabel" class="coverage-label">Carregando bairros</span></div>
+          <div id="teamList" class="team-list"></div>
+
+          <div class="sidebar-rule"></div>
+          <div class="side-title-row compact"><div><div class="section-kicker">TERRITÓRIO</div><h2>Áreas da cidade</h2></div><span class="count-badge" id="areaTotal">—</span></div>
+          <div class="search-wrap"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg><input id="searchInput" type="search" placeholder="Buscar bairro..." aria-label="Buscar bairro"/><kbd>⌘ K</kbd></div>
+          <div class="filter-row"><button class="filter-chip active" data-filter="all">Todos</button><button class="filter-chip" data-filter="unassigned">Sem equipe</button><button class="filter-chip" data-filter="assigned">Atribuídos</button></div>
+          <div id="areaList" class="area-list"><div class="loading-inline"><span class="spinner"></span> Buscando bairros oficiais…</div></div>
+          <div class="sidebar-bottom"><button id="resetBtn" class="text-button"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8m0-5v5h5"/></svg> Restaurar exemplo</button><span>Alterações salvas neste dispositivo</span></div>
+        </div>
+      </aside>
+
+      <section class="map-panel" aria-label="Mapa interativo de Serra">
+        <div id="map"></div>
+        <div class="map-top-left"><div class="map-title-card"><span class="map-pin"><svg viewBox="0 0 24 24"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg></span><div><strong>Serra</strong><span>Espírito Santo · Brasil</span></div><button id="recenterBtn" class="recenter" title="Centralizar mapa"><svg viewBox="0 0 24 24"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M8 12a4 4 0 1 0 8 0 4 4 0 0 0-8 0Z"/></svg></button></div></div>
+        <div class="map-top-right"><button class="map-action" id="fullscreenBtn" title="Tela cheia"><svg viewBox="0 0 24 24"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg></button><button class="map-action" id="printBtn" title="Imprimir mapa"><svg viewBox="0 0 24 24"><path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M7 14h10v7H7z"/></svg></button></div>
+        <div class="map-bottom-left"><div class="map-legend"><div class="legend-head"><span class="legend-dot"></span> Legenda</div><div class="legend-items" id="legendItems"></div><div class="legend-footer"><span class="unassigned-swatch"></span> Sem equipe</div></div></div>
+        <div class="map-bottom-right"><span class="map-attribution">Dados de bairros: <a href="https://mapas.serra.es.gov.br/" target="_blank" rel="noreferrer">Prefeitura da Serra</a> · Mapa © OpenStreetMap</span></div>
+        <div class="map-loading" id="mapLoading"><span class="spinner"></span><span>Carregando mapa oficial…</span></div>
+        <div class="toast" id="toast" role="status"></div>
+      </section>
+    </main>
+  </div>
+  <dialog id="assignDialog" class="assign-dialog"><form method="dialog"><div class="dialog-top"><span class="dialog-icon"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5M5.5 9v11h13V9M9.5 20v-6h5v6"/></svg></span><button class="dialog-close" value="cancel" aria-label="Fechar">×</button></div><p class="section-kicker">ATRIBUIR TERRITÓRIO</p><h2 id="dialogArea">Nome do bairro</h2><p class="dialog-copy">Escolha a equipe responsável por este bairro.</p><div class="select-label">EQUIPE</div><div id="teamChoices" class="team-choices"></div><div class="dialog-actions"><button id="unassignBtn" type="button" class="button button-quiet">Remover equipe</button><button value="cancel" class="button button-primary" id="cancelAssign">Concluir</button></div></form></dialog>
+  <dialog id="teamDialog" class="team-dialog"><form method="dialog" id="teamForm"><div class="dialog-top"><span class="dialog-icon green-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.3"/><path d="M3 20v-1.5a6 6 0 0 1 12 0V20M16 5.5a3.2 3.2 0 0 1 0 6.2m2 2.1a5 5 0 0 1 3 4.6V20"/></svg></span><button class="dialog-close" value="cancel" aria-label="Fechar">×</button></div><p class="section-kicker">CONFIGURAÇÃO DA EQUIPE</p><h2 id="teamDialogTitle">Nova equipe</h2><input type="hidden" id="teamIdInput"><label class="field-label" for="teamNameInput">Nome da equipe</label><input class="text-field" id="teamNameInput" placeholder="Ex.: Equipe Norte" maxlength="36" required><label class="field-label" for="teamRepInput">Representantes <span>um nome por linha</span></label><textarea class="text-field textarea" id="teamRepInput" rows="3" placeholder="Ana Souza&#10;Carlos Lima"></textarea><label class="field-label">Cor da equipe</label><div id="colorChoices" class="color-choices"></div><div class="dialog-actions"><button id="deleteTeamBtn" type="button" class="button button-quiet danger-text">Excluir equipe</button><button class="button button-primary" id="saveTeamBtn" value="save">Salvar equipe</button></div></form></dialog>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="app.js"></script>
+</body>
+</html>
