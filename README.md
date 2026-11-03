@@ -2,9 +2,11 @@
 
 Mapa interativo dos bairros oficiais de Serra/ES para planejar a atuação comercial da Confiauto. A aplicação usa GitHub Pages como site estático e Supabase para autenticação e dados compartilhados de campo.
 
-## Configurar o ambiente compartilhado
+## Acesso ao painel
 
-Siga [supabase/README.md](supabase/README.md) para criar o banco, convidar o administrador inicial e publicar a função segura de convites. Configure o Project URL e a chave anon/public em `supabase-config.js` antes de publicar os arquivos atualizados. Sem essa configuração, o portal mantém o acesso bloqueado e não salva relatórios compartilhados.
+O backend Supabase já está conectado e publicado. A conta administradora `supervisaoconfiauto@gmail.com` recebeu um convite por e-mail. Depois de aceitar e entrar no painel, o gerente poderá convidar cada supervisor, escolher a equipe e enviar o acesso por e-mail.
+
+As instruções técnicas e o esquema do banco estão em [supabase/README.md](supabase/README.md). O app exige login; os relatos são compartilhados conforme o papel de cada usuário.
 
 ## Recursos do painel
 
@@ -26,4 +28,4 @@ Na pasta do projeto, inicie um servidor estático:
 python3 -m http.server 8000
 ```
 
-Depois abra [http://localhost:8000](http://localhost:8000). O login compartilhado só funciona depois da configuração do Supabase.
+Depois abra [http://localhost:8000](http://localhost:8000). O login usa o mesmo banco compartilhado do app publicado.
