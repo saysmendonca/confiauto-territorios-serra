@@ -31,14 +31,14 @@
     map = L.map('map', { zoomControl:false, preferCanvas:true }).setView(CENTER, 11.1);
     L.control.zoom({position:'bottomright'}).addTo(map);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap contributors' }).addTo(map);
-    map.on('zoomend', refreshLabels);
+    map.on('zoomend moveend', refreshLabels);
   }
   function featureId(feature) { return String(feature.properties?.objectid ?? feature.properties?.OBJECTID ?? feature.id); }
   function featureName(feature) { return feature.properties?.tx_bairro || feature.properties?.TX_BAIRRO || feature.properties?.Bairro || 'Bairro'; }
   function layerStyle(feature) {
     const id=featureId(feature), color=colorFor(id), matches=matchesFilter(feature);
     const dimmed = !matches;
-    return { color: color ? shade(color,-25) : '#91a1ab', weight:color?1.8:1.1, opacity:dimmed?.20:.88, fillColor:color || '#b9c8d1', fillOpacity:dimmed?.045:(color?.52:.22), className:'area-polygon' };
+    return { color: color ? shade(color,-35) : '#597487', weight:color?2.2:1.55, opacity:dimmed?.20:.96, fillColor:color || '#b9c8d1', fillOpacity:dimmed?.045:(color?.52:.22), className:'area-polygon' };
   }
   function shade(hex, amount) {
     const n=parseInt(hex.slice(1),16), r=Math.max(0,Math.min(255,(n>>16)+amount)),g=Math.max(0,Math.min(255,((n>>8)&255)+amount)),b=Math.max(0,Math.min(255,(n&255)+amount));
@@ -79,12 +79,25 @@
   }
   function refreshLabels() {
     if(!geoLayer) return;
-    const show=map.getZoom()>=12.3;
+    const zoom=map.getZoom(), show=zoom>=11;
+    const candidates=[];
     geoLayer.eachLayer(layer=>{
       if(!show){layer.unbindTooltip();return;}
       const name=featureName(layer.feature);
       if(!layer.getTooltip()) layer.bindTooltip(esc(name),{permanent:true,direction:'center',className:'area-label',opacity:.88});
-      if(layer.getTooltip()) layer.openTooltip();
+      layer.openTooltip();
+      const element=layer.getTooltip()?.getElement();
+      if(element){element.style.display='';candidates.push({element,name,assigned:!!colorFor(featureId(layer.feature))});}
+    });
+    if(!show)return;
+    const mapRect=$('map').getBoundingClientRect(), occupied=[];
+    candidates.sort((a,b)=>Number(b.assigned)-Number(a.assigned) || a.name.length-b.name.length);
+    candidates.forEach(({element})=>{
+      const rect=element.getBoundingClientRect();
+      const outside=rect.right<mapRect.left || rect.left>mapRect.right || rect.bottom<mapRect.top || rect.top>mapRect.bottom;
+      const collision=zoom<13 && occupied.some(r=>rect.left<r.right+3 && rect.right+3>r.left && rect.top<r.bottom+2 && rect.bottom+2>r.top);
+      if(outside || collision) element.style.display='none';
+      else occupied.push(rect);
     });
   }
   function renderStats() {
