@@ -3,11 +3,13 @@
   const STORAGE_KEY = 'confiauto-serra-territorios-v1';
   const CENTER = [-20.1289, -40.3074];
   const DEFAULT_TEAMS = [
-    { id: 'team-blue', name: 'Equipe Azul', color: '#2478c5', reps: ['Representante 1', 'Representante 2'] },
-    { id: 'team-green', name: 'Equipe Verde', color: '#24a477', reps: ['Representante 3', 'Representante 4'] },
-    { id: 'team-orange', name: 'Equipe Laranja', color: '#ed9638', reps: ['Representante 5', 'Representante 6'] },
+    { id: 'team-blue', name: 'Xtreme', color: '#2563eb', reps: [] },
+    { id: 'team-green', name: 'Jato', color: '#e11d48', reps: [] },
+    { id: 'team-orange', name: 'Bravos', color: '#059669', reps: [] },
+    { id: 'team-caveira', name: 'Caveira', color: '#7c3aed', reps: [] },
+    { id: 'team-alta-performance', name: 'Alta Performance', color: '#ea580c', reps: [] },
   ];
-  const PALETTE = ['#2478c5','#24a477','#ed9638','#875bd1','#e05c67','#17a6ad','#bf8054','#5675d5','#d69c24','#6a9c4b'];
+  const PALETTE = ['#2563eb','#e11d48','#059669','#7c3aed','#ea580c','#0891b2','#a16207','#db2777','#4d7c0f','#475569'];
   let state = readState();
   let map, geoLayer, features = [], featureById = new Map(), currentArea = null, selectedColor = PALETTE[0], filter = 'all', search = '';
   let toastTimer;
@@ -16,7 +18,17 @@
   function readState() {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      if (saved && Array.isArray(saved.teams) && saved.assignments) return saved;
+      if (saved && Array.isArray(saved.teams) && saved.assignments) {
+        DEFAULT_TEAMS.forEach(defaultTeam => {
+          const existing = saved.teams.find(team => team.id === defaultTeam.id);
+          if (existing) {
+            existing.name = defaultTeam.name;
+            existing.color = defaultTeam.color;
+            if ((existing.reps || []).every(rep => /^Representante \d+$/.test(rep))) existing.reps = [];
+          } else saved.teams.push({...defaultTeam, reps:[]});
+        });
+        return saved;
+      }
     } catch (e) { /* malformed local data is ignored */ }
     return { teams: DEFAULT_TEAMS.map(t => ({...t, reps:[...t.reps]})), assignments: {} };
   }
@@ -77,28 +89,29 @@
       console.error('Erro carregando bairros Serra:',err);
     }
   }
+  let labelFrame = 0;
   function refreshLabels() {
     if(!geoLayer) return;
     const zoom=map.getZoom(), show=zoom>=11;
-    const candidates=[];
     geoLayer.eachLayer(layer=>{
       if(!show){layer.unbindTooltip();return;}
-      const name=featureName(layer.feature);
-      if(!layer.getTooltip()) layer.bindTooltip(esc(name),{permanent:true,direction:'center',className:'area-label',opacity:.88});
+      if(!layer.getTooltip()) layer.bindTooltip(esc(featureName(layer.feature)),{permanent:true,direction:'center',className:'area-label',opacity:.96});
       layer.openTooltip();
-      const element=layer.getTooltip()?.getElement();
-      if(element){element.style.display='';candidates.push({element,name,assigned:!!colorFor(featureId(layer.feature))});}
     });
     if(!show)return;
-    const mapRect=$('map').getBoundingClientRect(), occupied=[];
-    candidates.sort((a,b)=>Number(b.assigned)-Number(a.assigned) || a.name.length-b.name.length);
-    candidates.forEach(({element})=>{
-      const rect=element.getBoundingClientRect();
-      const outside=rect.right<mapRect.left || rect.left>mapRect.right || rect.bottom<mapRect.top || rect.top>mapRect.bottom;
-      const collision=zoom<13 && occupied.some(r=>rect.left<r.right+3 && rect.right+3>r.left && rect.top<r.bottom+2 && rect.bottom+2>r.top);
-      if(outside || collision) element.style.display='none';
-      else occupied.push(rect);
-    });
+    cancelAnimationFrame(labelFrame);
+    labelFrame=requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const mapRect=$('map').getBoundingClientRect(), occupied=[];
+      const candidates=[...document.querySelectorAll('.leaflet-tooltip.area-label')];
+      candidates.sort((a,b)=>a.textContent.length-b.textContent.length);
+      candidates.forEach(element=>{
+        const rect=element.getBoundingClientRect();
+        const outside=rect.right<mapRect.left || rect.left>mapRect.right || rect.bottom<mapRect.top || rect.top>mapRect.bottom;
+        const collision=zoom<13 && occupied.some(r=>rect.left<r.right+3 && rect.right+3>r.left && rect.top<r.bottom+2 && rect.bottom+2>r.top);
+        element.style.display=outside || collision?'none':'';
+        if(!outside && !collision) occupied.push(rect);
+      });
+    }));
   }
   function renderStats() {
     const assigned=Object.keys(state.assignments).filter(id=>featureById.has(id)).length;
@@ -112,7 +125,7 @@
     const countsByTeam=counts();
     $('teamList').innerHTML=state.teams.length?state.teams.map(t=>{
       const reps=(t.reps||[]).filter(Boolean);
-      return `<article class="team-card"><div class="team-card-head"><i class="team-color" style="--team-color:${esc(t.color)}"></i><span class="team-name" title="${esc(t.name)}">${esc(t.name)}</span><span class="team-area-count">${countsByTeam[t.id]||0} bairros</span><button class="team-edit" data-edit-team="${esc(t.id)}" title="Editar ${esc(t.name)}" aria-label="Editar equipe">···</button></div><div class="team-reps">${reps.length?esc(reps.join(' · ')):'Sem representantes cadastrados'}</div></article>`;
+      return `<article class="team-card"><div class="team-card-head"><i class="team-color" style="--team-color:${esc(t.color)}"></i><span class="team-name" title="${esc(t.name)}">${esc(t.name)}</span><span class="team-area-count">${countsByTeam[t.id]||0} bairros</span><button class="team-edit" data-edit-team="${esc(t.id)}" title="Editar ${esc(t.name)}" aria-label="Editar equipe">···</button></div><div class="team-reps">${reps.length?esc(reps.join(' · ')):'Adicione os colaboradores desta equipe'}</div></article>`;
     }).join(''):'<div class="empty-teams">Adicione uma equipe para começar a distribuir os bairros.</div>';
     $('teamCount').textContent=state.teams.length;
     $('legendItems').innerHTML=state.teams.map(t=>`<div class="legend-team"><i style="background:${esc(t.color)}"></i><span>${esc(t.name)}</span></div>`).join('') || '<div class="legend-team">Cadastre equipes para ver as cores.</div>';
@@ -162,7 +175,7 @@
   }
   function exportCsv() {
     if(!features.length){toast('Carregue os bairros antes de exportar.');return;}
-    const rows=[['Bairro','Equipe','Cor','Representantes'],...features.map(f=>{
+    const rows=[['Bairro','Equipe','Cor','Colaboradores'],...features.map(f=>{
       const t=state.teams.find(x=>x.id===state.assignments[featureId(f)]);
       return [featureName(f),t?.name||'',t?.color||'',(t?.reps||[]).join('; ')];
     })];
