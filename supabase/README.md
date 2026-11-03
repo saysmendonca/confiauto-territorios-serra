@@ -1,17 +1,15 @@
 # Backend compartilhado Confiauto Serra
 
-O GitHub Pages serve a interface estática; o Supabase guarda contas, fotos privadas e relatórios compartilhados.
+O app do GitHub Pages já está conectado ao Supabase. O esquema SQL está em [supabase-schema.sql](../supabase-schema.sql); a função de convites foi publicada como Edge Function `invite-user`.
 
-## Configuração já aplicada
+O endereço do site e a chave publicável ficam em `supabase-config.js`. Essa chave pode ser usada no navegador. Nunca publique uma chave `service_role`.
 
-O projeto Supabase da Confiauto está conectado ao app. O esquema SQL está em [supabase-schema.sql](../supabase-schema.sql) e a função de convites foi publicada como Edge Function invite-user.
+## E-mails de acesso
 
-O endereço do site e a chave publicável ficam em supabase-config.js. Essa chave pode ser usada no navegador. Nunca publique uma chave service_role.
+O SMTP padrão do Supabase só envia mensagens para membros da equipe da organização. Para convidar supervisores externos, configure um SMTP próprio em **Authentication → Emails** no projeto. Os convites feitos pelo painel dependem dessa entrega por e-mail.
 
-## Contas
+A conta administradora inicial é `supervisaoconfiauto@gmail.com`. Depois de entrar no app, o gerente convida supervisores e escolhe a equipe de cada um.
 
-A conta inicial de administrador é supervisaoconfiauto@gmail.com. O convite de acesso foi enviado por e-mail. Após aceitar, o gerente pode convidar supervisores pelo painel, informando nome, e-mail e equipe.
+## Dados do app
 
-Supervisores selecionam vários bairros e registram, por bairro, data de ação, consultores presentes e observações. Administradores veem todos os relatos e as atualizações em tempo real; supervisores veem os próprios relatos. Fotos de perfil são privadas e limitadas a 5 MB.
-
-As contas são por convite. O link de convite e redefinição de senha retorna ao endereço publicado no GitHub Pages.
+Supervisores podem selecionar vários bairros e registrar, para cada bairro, a data da ação, os consultores presentes e uma observação. Administradores veem os relatos de todas as equipes e recebem atualizações em tempo real; supervisores consultam apenas os próprios relatos. As fotos de perfil ficam privadas no Supabase Storage e aceitam imagens de até 5 MB.
