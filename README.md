@@ -10,11 +10,12 @@ As instruções técnicas e o esquema do banco estão em [supabase/README.md](su
 
 ## Recursos do painel
 
-- Login por convite para administradores e supervisores.
-- Convites de usuários por e-mail e equipe, com definição individual de senha.
+- Login por convite para administradores, supervisores e consultores.
+- Convites de usuários por e-mail, com vínculo à equipe.
 - Foto de perfil privada, com envio de imagem até 5 MB.
-- Seleção de vários bairros e formulário independente por bairro para data, consultores presentes e observação.
-- Visão de relatórios de todas as equipes para administradores; supervisores consultam os próprios registros.
+- Supervisores registram ações em vários bairros; consultores escolhem bairros e registram a data e sua programação.
+- Marcadores no mapa indicam a data e o local das atividades registradas.
+- Administradores veem todas as equipes; supervisores acompanham os registros da sua equipe.
 - Atualização do painel em tempo real e dados protegidos por Row Level Security.
 - Distribuição das áreas em cinco equipes com cores diferentes.
 

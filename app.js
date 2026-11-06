@@ -12,7 +12,7 @@
   const PALETTE = ['#2563eb','#e11d48','#059669','#7c3aed','#ea580c','#0891b2','#a16207','#db2777','#4d7c0f','#475569'];
   let state = readState();
   let map, geoLayer, features = [], featureById = new Map(), currentArea = null, selectedColor = PALETTE[0], filter = 'all', search = '';
-  let supabaseClient = null, currentUser = null, currentProfile = null, actionReports = [], selectedAreaIds = new Set(), reportDrafts = new Map(), profileCache = new Map(), reportsChannel = null;
+  let supabaseClient = null, currentUser = null, currentProfile = null, actionReports = [], selectedAreaIds = new Set(), reportDrafts = new Map(), profileCache = new Map(), reportsChannel = null, reportMarkers = null;
   let toastTimer;
   const $ = (id) => document.getElementById(id);
 
@@ -68,7 +68,7 @@
   }
   function onEachFeature(feature, layer) {
     const id=featureId(feature);
-    layer.on({click:()=>currentProfile?.role==='supervisor'?toggleSelectedArea(feature):openAssign(feature), mouseover:e=>{e.target.setStyle({weight:2.5,fillOpacity:.68});e.target.bringToFront();}, mouseout:e=>geoLayer?.resetStyle(e.target)});
+    layer.on({click:()=>currentProfile?.role==='admin'?openAssign(feature):toggleSelectedArea(feature), mouseover:e=>{e.target.setStyle({weight:2.5,fillOpacity:.68});e.target.bringToFront();}, mouseout:e=>geoLayer?.resetStyle(e.target)});
     featureById.set(id,layer);
   }
   async function loadNeighborhoods() {
@@ -146,7 +146,7 @@
     }).join(''):'<div class="empty-list">Nenhum bairro encontrado neste filtro.</div>';
     document.querySelectorAll('[data-area-id]').forEach(btn=>btn.addEventListener('click',()=>{
       const f=features.find(x=>featureId(x)===btn.dataset.areaId); if(!f)return;
-      const layer=featureById.get(btn.dataset.areaId); if(layer){map.fitBounds(layer.getBounds(),{maxZoom:14}); setTimeout(()=>currentProfile?.role==='supervisor'?toggleSelectedArea(f):openAssign(f),220);}
+      const layer=featureById.get(btn.dataset.areaId); if(layer){map.fitBounds(layer.getBounds(),{maxZoom:14}); setTimeout(()=>currentProfile?.role==='admin'?openAssign(f):toggleSelectedArea(f),220);}
     }));
   }
   function repaint() {
@@ -218,7 +218,8 @@
   async function renderAccount() {
     if(!currentUser||!currentProfile){$('authArea').innerHTML='';return;}
     const profile=await resolveAvatar(currentProfile);
-    $('authArea').innerHTML=`<label class="profile-photo-button" title="Alterar foto de perfil">${avatarMarkup(profile)}<input id="profilePhotoInput" type="file" accept="image/png,image/jpeg,image/webp" aria-label="Alterar foto de perfil"></label><div class="profile-caption"><strong>${esc(profile.full_name)}</strong><span>${profile.role==='admin'?'Administrador':esc(state.teams.find(t=>t.id===profile.team_id)?.name||'Supervisor')}</span></div><button id="changePasswordBtn" class="button button-quiet logout-button" type="button">Senha</button><button id="logoutBtn" class="button button-quiet logout-button" type="button">Sair</button>`;
+    const roleLabel=profile.role==='admin'?'Administrador':profile.role==='consultant'?'Consultor':'Supervisor';
+    $('authArea').innerHTML=`<label class="profile-photo-button" title="Alterar foto de perfil">${avatarMarkup(profile)}<input id="profilePhotoInput" type="file" accept="image/png,image/jpeg,image/webp" aria-label="Alterar foto de perfil"></label><div class="profile-caption"><strong>${esc(profile.full_name)}</strong><span>${roleLabel}${profile.role==='admin'?'':` · ${esc(state.teams.find(t=>t.id===profile.team_id)?.name||'Sem equipe')}`}</span></div><button id="changePasswordBtn" class="button button-quiet logout-button" type="button">Senha</button><button id="logoutBtn" class="button button-quiet logout-button" type="button">Sair</button>`;
     $('logoutBtn').addEventListener('click',async()=>{await supabaseClient.auth.signOut();});
     $('changePasswordBtn').addEventListener('click',()=>$('passwordDialog').showModal());
     $('profilePhotoInput').addEventListener('change',uploadProfilePhoto);
@@ -234,10 +235,10 @@
     if(data?.length){state.teams=data.map(team=>({...team,reps:[]}));save();}
   }
   function renderSupervisorList(profiles) {
-    $('supervisorList').innerHTML=profiles.filter(p=>p.role==='supervisor').map(profile=>{
+    $('supervisorList').innerHTML=profiles.filter(p=>p.role==='supervisor'||p.role==='consultant').map(profile=>{
       const team=state.teams.find(t=>t.id===profile.team_id);
-      return `<article class="supervisor-card">${avatarMarkup(profile,'small')}<div><strong>${esc(profile.full_name)}</strong><span>${esc(team?.name||'Sem equipe')}</span></div></article>`;
-    }).join('')||'<div class="empty-list">Nenhum supervisor cadastrado.</div>';
+      return `<article class="supervisor-card">${avatarMarkup(profile,'small')}<div><strong>${esc(profile.full_name)}</strong><span>${profile.role==='consultant'?'Consultor':'Supervisor'} · ${esc(team?.name||'Sem equipe')}</span></div></article>`;
+    }).join('')||'<div class="empty-list">Nenhum usuário de equipe cadastrado.</div>';
   }
   async function refreshReports() {
     if(!currentProfile||!supabaseClient)return;
@@ -249,7 +250,7 @@
     if(error){console.error(error);toast('Não foi possível atualizar os relatos.');return;}
     const profileById=new Map(profiles.map(p=>[p.user_id,p]));
     actionReports=(data||[]).map(report=>({...report,profile:profileById.get(report.supervisor_id)}));
-    renderReportFeed(); renderAreas();
+    renderReportFeed(); renderAreas(); renderMapReports();
     if(geoLayer)geoLayer.setStyle(layerStyle);
   }
   function renderReportFeed() {
@@ -262,16 +263,38 @@
     }).join('');
     feed.querySelectorAll('[data-report-id]').forEach(btn=>btn.addEventListener('click',()=>openReportDetail(actionReports.find(r=>r.id===btn.dataset.reportId))));
   }
+  function renderMapReports() {
+    if(!map)return;
+    if(!reportMarkers)reportMarkers=L.layerGroup().addTo(map);
+    reportMarkers.clearLayers();
+    const newestByArea=new Map();
+    actionReports.forEach(report=>{
+      const previous=newestByArea.get(report.area_id);
+      if(!previous||`${report.action_date}-${report.created_at}`>`${previous.action_date}-${previous.created_at}`)newestByArea.set(report.area_id,report);
+    });
+    newestByArea.forEach(report=>{
+      const layer=featureById.get(report.area_id);if(!layer)return;
+      const date=new Date(`${report.action_date}T12:00:00`).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+      const person=report.profile?.full_name||'Atividade';
+      const marker=L.marker(layer.getBounds().getCenter(),{keyboard:true,icon:L.divIcon({className:'',iconSize:[112,34],iconAnchor:[56,17],html:`<button class="activity-map-chip" type="button" title="${esc(report.area_name)} · ${esc(date)} · ${esc(person)}"><span>${esc(date)}</span><b>${esc(person.split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase())}</b></button>`})});
+      marker.on('click',()=>openReportDetail(report));
+      marker.addTo(reportMarkers);
+    });
+  }
   function openReportDetail(report) {
     if(!report)return;
     const team=state.teams.find(t=>t.id===report.profile?.team_id);
     $('reportDetailArea').textContent=report.area_name;
-    $('reportDetailBody').innerHTML=`<div class="detail-line"><span>Data da ação</span><strong>${esc(new Date(`${report.action_date}T12:00:00`).toLocaleDateString('pt-BR'))}</strong></div><div class="detail-line"><span>Supervisor</span><strong>${esc(report.profile?.full_name||'—')} · ${esc(team?.name||'')}</strong></div><div class="detail-block"><span>Consultores presentes</span><strong>${esc((report.consultants||[]).join(', ')||'Não informado')}</strong></div><div class="detail-block"><span>Observação</span><p>${esc(report.observation||'Sem observação.')}</p></div>`;
+    $('reportDetailBody').innerHTML=`<div class="detail-line"><span>Data da atividade</span><strong>${esc(new Date(`${report.action_date}T12:00:00`).toLocaleDateString('pt-BR'))}</strong></div><div class="detail-line"><span>Registrado por</span><strong>${esc(report.profile?.full_name||'—')}</strong></div><div class="detail-line"><span>Equipe</span><strong>${esc(team?.name||'Sem equipe')}</strong></div>${(report.consultants||[]).length?`<div class="detail-block"><span>Consultores presentes</span><strong>${esc((report.consultants||[]).join(', '))}</strong></div>`:''}<div class="detail-block"><span>${report.profile?.role==='consultant'?'Programação / observação':'Observação'}</span><p>${esc(report.observation||'Sem observação.')}</p></div>`;
     $('reportDetailDialog').showModal();
   }
   function renderRolePanels(profiles=[]) {
     const supervisor=currentProfile?.role==='supervisor';
-    $('fieldActions').hidden=!supervisor;
+    const consultant=currentProfile?.role==='consultant';
+    $('inviteSupervisorBtn').hidden=currentProfile?.role!=='admin';
+    $('supervisorList').previousElementSibling.hidden=currentProfile?.role!=='admin';
+    $('supervisorList').hidden=currentProfile?.role!=='admin';
+    $('fieldActions').hidden=!(supervisor||consultant);
     $('managerReports').hidden=currentProfile?.role!=='admin';
     if(currentProfile?.role==='admin'){
       $('managerReports').hidden=false;
@@ -279,6 +302,9 @@
       renderSupervisorList(profiles);
     } else if(supervisor) {
       $('fieldHelp').textContent=`Selecione os bairros visitados pela equipe ${state.teams.find(t=>t.id===currentProfile.team_id)?.name||''}.`;
+    } else if(consultant) {
+      $('fieldHelp').textContent='Escolha seu bairro de atuação, a data e descreva sua programação. O registro aparecerá no mapa para sua equipe.';
+      $('toggleReportMode').textContent='Escolher bairro no mapa';
       $('managerReports').hidden=true;
     }
   }
@@ -293,7 +319,7 @@
     if(!wrapper)return;
     wrapper.innerHTML=[...selectedAreaIds].map(id=>{
       const feature=features.find(item=>featureId(item)===id),name=featureName(feature||{}),draft=reportDrafts.get(id)||{consultants:'',observation:''};
-      return `<section class="area-report-draft"><strong>${esc(name)}</strong><label class="field-label" for="consultants-${esc(id)}">Consultores presentes <span>um por linha</span></label><textarea class="text-field textarea" id="consultants-${esc(id)}" rows="2" placeholder="Nome do consultor">${esc(draft.consultants)}</textarea><label class="field-label" for="observation-${esc(id)}">Observação para o gerente</label><textarea class="text-field textarea" id="observation-${esc(id)}" rows="2" maxlength="1500" placeholder="Ponto de encontro, resultado ou recado">${esc(draft.observation)}</textarea></section>`;
+      return `<section class="area-report-draft"><strong>${esc(name)}</strong>${currentProfile?.role==='consultant'?'':`<label class="field-label" for="consultants-${esc(id)}">Consultores presentes <span>um por linha</span></label><textarea class="text-field textarea" id="consultants-${esc(id)}" rows="2" placeholder="Nome do consultor">${esc(draft.consultants)}</textarea>`}<label class="field-label" for="observation-${esc(id)}">${currentProfile?.role==='consultant'?'Programação / observação':'Observação para o gerente'}</label><textarea class="text-field textarea" id="observation-${esc(id)}" rows="3" maxlength="1500" placeholder="${currentProfile?.role==='consultant'?'Descreva sua programação, horários e ponto de atendimento':'Ponto de encontro, resultado ou recado'}">${esc(draft.observation)}</textarea></section>`;
     }).join('');
     selectedAreaIds.forEach(id=>{
       const consultants=$(`consultants-${id}`),observation=$(`observation-${id}`);
@@ -313,8 +339,10 @@
     if(!date){$('actionDate').focus();toast('Informe a data da ação.');return;}
     for(const id of selectedAreaIds){
       const consultants=$(`consultants-${id}`)?.value.split(/[\n,;]/).map(x=>x.trim()).filter(Boolean)||[];
-      if(!consultants.length){$(`consultants-${id}`)?.focus();toast(`Informe consultores em ${featureName(features.find(f=>featureId(f)===id)||{})}.`);return;}
-      reportDrafts.set(id,{consultants:consultants.join('\n'),observation:$(`observation-${id}`)?.value.trim()||''});
+      const observation=$(`observation-${id}`)?.value.trim()||'';
+      if(currentProfile.role==='supervisor'&&!consultants.length){$(`consultants-${id}`)?.focus();toast(`Informe consultores em ${featureName(features.find(f=>featureId(f)===id)||{})}.`);return;}
+      if(currentProfile.role==='consultant'&&!observation){$(`observation-${id}`)?.focus();toast('Descreva sua programação para esta atividade.');return;}
+      reportDrafts.set(id,{consultants:consultants.join('\n'),observation});
     }
     const rows=[...selectedAreaIds].map(id=>{const draft=reportDrafts.get(id)||{};return {supervisor_id:currentUser.id,area_id:id,area_name:featureName(features.find(f=>featureId(f)===id)||{}),action_date:date,consultants:(draft.consultants||'').split(/[\n,;]/).map(x=>x.trim()).filter(Boolean),observation:(draft.observation||'').trim()};});
     const {error}=await supabaseClient.from('action_reports').upsert(rows,{onConflict:'supervisor_id,area_id,action_date'});
@@ -336,7 +364,7 @@
   }
   async function handleInvite(event) {
     event.preventDefault();
-    const role=$('inviteRole').value,body={fullName:$('inviteName').value.trim(),email:$('inviteEmail').value.trim(),role,teamId:role==='supervisor' ? $('inviteTeam').value : null};
+    const role=$('inviteRole').value,body={fullName:$('inviteName').value.trim(),email:$('inviteEmail').value.trim(),role,teamId:role==='admin' ? null : $('inviteTeam').value};
     const {data,error}=await supabaseClient.functions.invoke('invite-user',{body});
     if(error||data?.error){$('inviteForm').setAttribute('data-error',data?.error||error.message);toast(data?.error||'Não foi possível enviar o convite.');return;}
     $('inviteDialog').close();$('inviteForm').reset();$('inviteRole').dispatchEvent(new Event('change'));await refreshReports();toast(`Convite enviado para ${body.email}.`);
@@ -356,7 +384,7 @@
     $('passwordDialog').close();$('passwordForm').reset();toast('Senha atualizada.');
   }
   async function applySession(session) {
-    if(!session){currentUser=null;currentProfile=null;actionReports=[];if(reportsChannel)supabaseClient.removeChannel(reportsChannel);$('authArea').innerHTML='';$('managerReports').hidden=true;$('fieldActions').hidden=true;showAuth();return;}
+    if(!session){currentUser=null;currentProfile=null;actionReports=[];selectedAreaIds.clear();if(reportsChannel)supabaseClient.removeChannel(reportsChannel);reportMarkers?.clearLayers();if(geoLayer)geoLayer.setStyle(layerStyle);$('authArea').innerHTML='';$('managerReports').hidden=true;$('fieldActions').hidden=true;showAuth();return;}
     currentUser=session.user;
     const {data,error}=await supabaseClient.from('profiles').select('*').eq('user_id',currentUser.id).maybeSingle();
     if(error||!data){toast('Seu acesso ainda não está associado a um perfil. Fale com o administrador.');await supabaseClient.auth.signOut();return;}
@@ -395,7 +423,7 @@
       $('inviteDialog').showModal();
     });
     $('inviteRole').addEventListener('change',()=>{
-      const isSupervisor=$('inviteRole').value==='supervisor';$('inviteTeamWrap').hidden=!isSupervisor;$('inviteTeam').required=isSupervisor;
+      const needsTeam=$('inviteRole').value!=='admin';$('inviteTeamWrap').hidden=!needsTeam;$('inviteTeam').required=needsTeam;
     });
     $('cancelInvite').addEventListener('click',()=>$('inviteDialog').close());
     $('saveActionReport').addEventListener('click',submitActionReport);

@@ -1,7 +1,7 @@
 -- Confiauto Territórios Serra: shared accounts and field action reports.
 -- Run in Supabase SQL Editor after creating a project.
 
-create type public.app_role as enum ('admin', 'supervisor');
+create type public.app_role as enum ('admin', 'supervisor', 'consultant');
 
 create table public.teams (
   id text primary key,
@@ -57,6 +57,7 @@ as $$
   );
 $$;
 
+
 alter table public.profiles enable row level security;
 alter table public.teams enable row level security;
 alter table public.action_reports enable row level security;
@@ -95,7 +96,7 @@ create policy "Supervisors insert their own action reports"
 on public.action_reports for insert to authenticated
 with check (
   supervisor_id = (select auth.uid())
-  and exists (select 1 from public.profiles p where p.user_id = (select auth.uid()) and p.role = 'supervisor')
+  and exists (select 1 from public.profiles p where p.user_id = (select auth.uid()) and p.role in ('supervisor', 'consultant'))
 );
 
 create policy "Owners or admins update action reports"
