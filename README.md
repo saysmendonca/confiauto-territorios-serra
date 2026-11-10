@@ -4,14 +4,15 @@ Mapa interativo dos bairros oficiais de Serra/ES para planejar a atuação comer
 
 ## Acesso ao painel
 
-O backend Supabase já está conectado e publicado. A conta administradora `supervisaoconfiauto@gmail.com` recebeu um convite por e-mail. Depois de entrar no painel, o gerente poderá convidar supervisores e consultores, escolhendo a equipe de cada um.
+O backend Supabase já está conectado. Qualquer pessoa poderá criar um cadastro de consultor diretamente na tela de login, escolher sua equipe e confirmar o e-mail. Contas administrativas e de supervisão continuam sendo criadas pelo gerente.
 
 As instruções técnicas e o esquema do banco estão em [supabase/README.md](supabase/README.md). O app exige login; os relatos são compartilhados conforme o papel de cada usuário.
 
 ## Recursos do painel
 
-- Login por convite para administradores, supervisores e consultores.
-- Convites de usuários por e-mail, com vínculo à equipe.
+- Cadastro público para consultores com escolha de equipe; o papel é definido pelo servidor.
+- Login e recuperação de senha por e-mail.
+- Convites administrativos por e-mail para supervisores.
 - Foto de perfil privada, com envio de imagem até 5 MB.
 - Supervisores registram ações em vários bairros; consultores escolhem bairros e registram a data e sua programação.
 - Marcadores no mapa indicam a data e o bairro das atividades registradas.

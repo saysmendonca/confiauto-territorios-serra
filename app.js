@@ -12,7 +12,7 @@
   const PALETTE = ['#2563eb','#e11d48','#059669','#7c3aed','#ea580c','#0891b2','#a16207','#db2777','#4d7c0f','#475569'];
   let state = readState();
   let map, geoLayer, features = [], featureById = new Map(), currentArea = null, selectedColor = PALETTE[0], filter = 'all', search = '';
-  let supabaseClient = null, currentUser = null, currentProfile = null, actionReports = [], selectedAreaIds = new Set(), reportDrafts = new Map(), profileCache = new Map(), reportsChannel = null, reportMarkers = null;
+  let supabaseClient = null, currentUser = null, currentProfile = null, actionReports = [], selectedAreaIds = new Set(), reportDrafts = new Map(), profileCache = new Map(), reportsChannel = null, reportMarkers = null, authMode = 'login';
   let toastTimer;
   const $ = (id) => document.getElementById(id);
 
@@ -198,9 +198,20 @@
     const cfg=window.CONFIAUTO_SUPABASE_CONFIG||{};
     return !!(window.supabase?.createClient && /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(cfg.url||'') && cfg.anonKey && !cfg.anonKey.includes('COLE_'));
   }
-  function showAuth(message='Entre com o e-mail convidado pelo administrador.') {
+  function showAuth(message='Entre com seu e-mail e senha.') {
     $('loginMessage').textContent=message; $('loginError').textContent='';
     if(!$('loginDialog').open) $('loginDialog').showModal();
+  }
+  function setAuthMode(mode) {
+    authMode=mode;
+    const signup=mode==='signup';
+    $('loginFields').hidden=signup; $('signupFields').hidden=!signup;
+    $('loginEmail').required=!signup; $('loginPassword').required=!signup;
+    $('signupName').required=signup; $('signupTeam').required=signup; $('signupEmail').required=signup; $('signupPassword').required=signup;
+    $('authHeading').textContent=signup?'Criar cadastro de consultor':'Entrar no painel';
+    $('loginMessage').textContent=signup?'Crie seu acesso e escolha sua equipe. Seu perfil será cadastrado como consultor.':'Entre com seu e-mail e senha.';
+    $('loginSubmit').textContent=signup?'Criar cadastro':'Entrar'; $('forgotPasswordBtn').hidden=signup;
+    $('toggleSignupBtn').hidden=signup; $('toggleLoginBtn').hidden=!signup; $('loginError').textContent='';
   }
   function initials(name='') { return name.trim().split(/\s+/).slice(0,2).map(part=>part[0]||'').join('').toUpperCase()||'C'; }
   function avatarMarkup(profile,size='') {
@@ -375,6 +386,17 @@
     $('loginSubmit').disabled=false;
     if(error)$('loginError').textContent=error.message==='Invalid login credentials'?'E-mail ou senha incorretos.':error.message;
   }
+  async function handleSignup(event) {
+    event.preventDefault(); $('loginError').textContent=''; $('loginSubmit').disabled=true;
+    const fullName=$('signupName').value.trim(), email=$('signupEmail').value.trim(), teamId=$('signupTeam').value, password=$('signupPassword').value;
+    if(password.length<8){$('loginError').textContent='Use uma senha com pelo menos 8 caracteres.';$('loginSubmit').disabled=false;return;}
+    const {data,error}=await supabaseClient.auth.signUp({email,password,options:{emailRedirectTo:window.location.origin+window.location.pathname,data:{full_name:fullName,team_id:teamId,signup_source:'public_app'}}});
+    $('loginSubmit').disabled=false;
+    if(error){$('loginError').textContent=error.message;return;}
+    if(data.session){$('loginError').textContent='Cadastro criado. Entrando…';return;}
+    $('loginError').textContent='Cadastro criado. Confira seu e-mail para confirmar a conta e depois entre.';
+    $('signupForm')?.reset();
+  }
   async function handlePasswordUpdate(event) {
     event.preventDefault();
     const password=$('newPassword').value;
@@ -408,7 +430,10 @@
     }
     const cfg=window.CONFIAUTO_SUPABASE_CONFIG;
     supabaseClient=window.supabase.createClient(cfg.url,cfg.anonKey);
-    $('loginForm').addEventListener('submit',handleLogin);
+    $('signupTeam').innerHTML=DEFAULT_TEAMS.map(team=>`<option value="${esc(team.id)}">${esc(team.name)}</option>`).join('');
+    $('loginForm').addEventListener('submit',event=>authMode==='signup'?handleSignup(event):handleLogin(event));
+    $('toggleSignupBtn').addEventListener('click',()=>setAuthMode('signup'));
+    $('toggleLoginBtn').addEventListener('click',()=>setAuthMode('login'));
     $('passwordForm').addEventListener('submit',handlePasswordUpdate);
     $('cancelPassword').addEventListener('click',()=>$('passwordDialog').close());
     $('forgotPasswordBtn').addEventListener('click',async()=>{
