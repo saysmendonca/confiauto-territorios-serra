@@ -12,4 +12,8 @@ A conta administradora inicial é `supervisaoconfiauto@gmail.com`. Depois de ent
 
 ## Dados do app
 
-Supervisores podem selecionar vários bairros e registrar, para cada bairro, a data da ação, os consultores presentes e uma observação. Administradores veem os relatos de todas as equipes e recebem atualizações em tempo real; supervisores consultam apenas os próprios relatos. As fotos de perfil ficam privadas no Supabase Storage e aceitam imagens de até 5 MB.
+Supervisores podem selecionar vários bairros e registrar, para cada bairro, a data da ação, os consultores presentes e uma observação. Administradores veem os relatos de todas as equipes. Supervisores acompanham os registros dos consultores da própria equipe. Consultores acessam apenas suas atividades, escolhem bairro/data e escrevem a programação no campo de observação. Cada registro aparece no mapa com marcador de data e local. Os dados recebem atualizações em tempo real e as fotos de perfil ficam privadas no Supabase Storage.
+
+## Atualização para liberar perfis de consultor
+
+No projeto existente, execute `migrations/20261106_consultant_access.sql` no SQL Editor. Rode primeiro apenas a instrução `ALTER TYPE` e confirme; depois rode o restante do arquivo. O Edge Function `invite-user` também deve ser atualizado para aceitar o perfil `consultant`.
