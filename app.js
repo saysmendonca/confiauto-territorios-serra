@@ -200,6 +200,7 @@
   }
   function showAuth(message='Entre com seu e-mail e senha.') {
     $('loginMessage').textContent=message; $('loginError').textContent='';
+    $('loginError').classList.remove('is-success');
     if(!$('loginDialog').open) $('loginDialog').showModal();
   }
   function setAuthMode(mode) {
@@ -211,7 +212,7 @@
     $('authHeading').textContent=signup?'Criar cadastro de consultor':'Entrar no painel';
     $('loginMessage').textContent=signup?'Crie seu acesso e escolha sua equipe. Seu perfil será cadastrado como consultor.':'Entre com seu e-mail e senha.';
     $('loginSubmit').textContent=signup?'Criar cadastro':'Entrar'; $('forgotPasswordBtn').hidden=signup;
-    $('toggleSignupBtn').hidden=signup; $('toggleLoginBtn').hidden=!signup; $('loginError').textContent='';
+    $('toggleSignupBtn').hidden=signup; $('toggleLoginBtn').hidden=!signup; $('loginError').textContent=''; $('loginError').classList.remove('is-success');
   }
   function initials(name='') { return name.trim().split(/\s+/).slice(0,2).map(part=>part[0]||'').join('').toUpperCase()||'C'; }
   function avatarMarkup(profile,size='') {
@@ -393,9 +394,9 @@
     const {data,error}=await supabaseClient.auth.signUp({email,password,options:{emailRedirectTo:window.location.origin+window.location.pathname,data:{full_name:fullName,team_id:teamId,signup_source:'public_app'}}});
     $('loginSubmit').disabled=false;
     if(error){$('loginError').textContent=error.message;return;}
+    $('loginError').classList.add('is-success');
     if(data.session){$('loginError').textContent='Cadastro criado. Entrando…';return;}
     $('loginError').textContent='Cadastro criado. Confira seu e-mail para confirmar a conta e depois entre.';
-    $('signupForm')?.reset();
   }
   async function handlePasswordUpdate(event) {
     event.preventDefault();
